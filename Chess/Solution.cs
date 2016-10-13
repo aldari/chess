@@ -32,6 +32,13 @@ class Solution
         public int y;
     }
 
+    enum SortOutResult
+    {
+        OpponentWin,
+        MyWin,
+        Raw
+    };
+
     static void SolveTask()
     {
         
@@ -47,15 +54,8 @@ class Solution
         for (int i = 0; i < b; i++)
             black.Add(ReadFigure(Console.ReadLine()));
 
-        for (int i = 0; i < white.Count; i++){
-            Console.WriteLine($"{white[i].FigureType} {white[i].x} {white[i].y}");
-        }
-        for (int i = 0; i < black.Count; i++)
-        {
-            Console.WriteLine($"{black[i].FigureType} {black[i].x} {black[i].y}");
-        }
-        BishopMoves(white, black, white.First());
         //DrawBoard(Board(white, black));
+        Console.WriteLine(AllPossibleMoves(white, black, 1, 3)==SortOutResult.MyWin ? "YES" : "NO" );
     }
 
     static char[,] Board(List<Figure> myFigures, List<Figure> opponent)
@@ -68,90 +68,312 @@ class Solution
         };
         char[] types = { 'Q', 'N', 'B', 'R' };
         foreach (var figure in myFigures)
-            board[figure.y, figure.x] = types[(int)figure.FigureType];
+            board[figure.x, figure.y] = types[(int)figure.FigureType];
         foreach (var figure in opponent)
-            board[figure.y, figure.x] = Char.ToLower(types[(int)figure.FigureType]);
+            board[figure.x, figure.y] = Char.ToLower(types[(int)figure.FigureType]);
         return board;
     }
 
     static void DrawBoard(char[,] board)
     {
+        Console.WriteLine("");
         for (int i = 3; i >= 0; i--)
         {
             for (int j = 0; j < 4; j++)
-                Console.Write($"{board[j, i]}");
+                Console.Write($"{board[i, j]}");
             Console.WriteLine("");
         }
     }
 
-    static bool CanBeatQueen(List<Figure> myFigures, List<Figure> opponent)
+    static SortOutResult AllPossibleMoves(List<Figure> myFigures, List<Figure> opponent, int count, int limit)
     {
-        Figure opponentQueen = opponent.First(x => x.FigureType == FigureType.Queen);
+        bool AllMyWin = true;
+        bool AllOpponentWin = true;
+
         foreach (var figure in myFigures)
         {
             var col = myFigures.ToList();
             col.Remove(figure);
-            var board = Board(col, opponent);
-            //if (figure.CanHit(opponentQueen.x, opponentQueen.y))
-            //    return true;
+            List<Cell> moves = null;
+            switch (figure.FigureType)
+            {
+                case FigureType.Bishop:
+                    moves = BishopMoves(col, opponent, figure);
+                    break;
+                case FigureType.Knight:
+                    moves = KnightMoves(col, opponent, figure);
+                    break;
+                case FigureType.Queen:
+                    moves = QueenMoves(col, opponent, figure);
+                    break;
+                case FigureType.Rook:
+                    moves = RookMoves(col, opponent, figure);
+                    break;
+            }
+            var queen = opponent.First(x => x.FigureType == FigureType.Queen);
+            var t = moves.Where(x => x.x == queen.x && x.y == queen.y).ToList();
+            if (t.Count > 0)
+                return SortOutResult.MyWin;
         }
-        return false;
+
+        foreach (var figure in myFigures)
+        {
+            var col = myFigures.ToList();
+            col.Remove(figure);
+            List<Cell> moves = null;
+            switch (figure.FigureType)
+            {
+                case FigureType.Bishop:
+                    moves = BishopMoves(col, opponent, figure);
+                    break;
+                case FigureType.Knight:
+                    moves = KnightMoves(col, opponent, figure);
+                    break;
+                case FigureType.Queen:
+                    moves = QueenMoves(col, opponent, figure);
+                    break;
+                case FigureType.Rook:
+                    moves = RookMoves(col, opponent, figure);
+                    break;
+            }
+
+            if (count != limit)
+            {
+                foreach (var move in moves)
+                {
+                    var c = col.ToList();
+                    var o = opponent.ToList();
+                    var f = new Figure { FigureType = figure.FigureType, x = move.x, y = move.y };
+                    c.Add(f);
+                    if (o.Any(s => s.x == move.x && s.y == move.y))
+                    {
+                        var w = o.Single(s => s.x == move.x && s.y == move.y);
+                        o.Remove(w);
+                    }
+
+                    //DrawBoard(Board(c, o));
+                    var result = AllPossibleMoves(o, c, count+1, limit);
+
+                    if (result == SortOutResult.OpponentWin)
+                        return SortOutResult.MyWin;
+
+                    if (result != SortOutResult.MyWin)
+                        AllMyWin = false;
+                }
+            }
+        }
+        if (AllMyWin)
+            return SortOutResult.OpponentWin;
+        return SortOutResult.Raw;
+    }
+
+    static List<Cell> KnightMoves(List<Figure> myFigures, List<Figure> opponent, Figure figure)
+    {
+        var col = myFigures.ToList();
+        var board = Board(col, opponent);
+        var moves = new List<Cell>();
+
+        var _x = figure.x + 2;
+        var _y = figure.y + 1;
+        if (_x >= 0 && _x < 4 && _y >= 0 && _y < 4 && (board[_x, _y] == '.' || Char.IsLower(board[_x, _y])))
+            moves.Add(new Cell { x = _x, y = _y });
+
+        _x = figure.x - 2;
+        _y = figure.y + 1;
+        if (_x >= 0 && _x < 4 && _y >= 0 && _y < 4 && (board[_x, _y] == '.' || Char.IsLower(board[_x, _y])))
+            moves.Add(new Cell { x = _x, y = _y });
+
+        _x = figure.x + 2;
+        _y = figure.y - 1;
+        if (_x >= 0 && _x < 4 && _y >= 0 && _y < 4 && (board[_x, _y] == '.' || Char.IsLower(board[_x, _y])))
+            moves.Add(new Cell { x = _x, y = _y });
+
+        _x = figure.x - 2;
+        _y = figure.y - 1;
+        if (_x >= 0 && _x < 4 && _y >= 0 && _y < 4 && (board[_x, _y] == '.' || Char.IsLower(board[_x, _y])))
+            moves.Add(new Cell { x = _x, y = _y });
+
+        _x = figure.x + 1;
+        _y = figure.y + 2;
+        if (_x >= 0 && _x < 4 && _y >= 0 && _y < 4 && (board[_x, _y] == '.' || Char.IsLower(board[_x, _y])))
+            moves.Add(new Cell { x = _x, y = _y });
+
+        _x = figure.x - 1;
+        _y = figure.y + 2;
+        if (_x >= 0 && _x < 4 && _y >= 0 && _y < 4 && (board[_x, _y] == '.' || Char.IsLower(board[_x, _y])))
+            moves.Add(new Cell { x = _x, y = _y });
+
+        _x = figure.x + 1;
+        _y = figure.y - 2;
+        if (_x >= 0 && _x < 4 && _y >= 0 && _y < 4 && (board[_x, _y] == '.' || Char.IsLower(board[_x, _y])))
+            moves.Add(new Cell { x = _x, y = _y });
+
+        _x = figure.x - 1;
+        _y = figure.y - 2;
+        if (_x >= 0 && _x < 4 && _y >= 0 && _y < 4 && (board[_x, _y] == '.' || Char.IsLower(board[_x, _y])))
+            moves.Add(new Cell { x = _x, y = _y });
+
+//        foreach (var move in moves)
+//            board[move.x, move.y] = 'x';
+//        DrawBoard(board);
+        return moves;
+    }
+
+    static List<Cell> QueenMoves(List<Figure> myFigures, List<Figure> opponent, Figure figure)
+    {
+        return HorizontalMoves(myFigures, opponent, figure).Concat(DiagonalMoves(myFigures, opponent, figure)).ToList();
+    }
+
+    static List<Cell> RookMoves(List<Figure> myFigures, List<Figure> opponent, Figure figure)
+    {
+        return HorizontalMoves(myFigures, opponent, figure);
     }
 
     static List<Cell> BishopMoves(List<Figure> myFigures, List<Figure> opponent, Figure figure)
     {
+        return DiagonalMoves(myFigures, opponent, figure);
+    }
+
+    static List<Cell> DiagonalMoves(List<Figure> myFigures, List<Figure> opponent, Figure figure)
+    {
         var col = myFigures.ToList();
-        //col.Remove(figure);
+        var board = Board(col, opponent);
+        var moves = new List<Cell>();
+        var _x = figure.x;
+        var _y = figure.y;
+        while (true)
+        {
+            _x++;
+            _y++;
+            if (_x < 4 && _y < 4 && (board[_x, _y] == '.' || Char.IsLower(board[_x,_y])))
+            {
+                moves.Add(new Cell { x = _x, y = _y });
+                if (Char.IsLower(board[_x, _y]))
+                    break;
+            }
+            else
+                break;
+        }
+        _x = figure.x;
+        _y = figure.y;
+        while (true)
+        {
+            _x--;
+            _y--;
+            if (_x >= 0 && _y >= 0 && (board[_x, _y] == '.' || Char.IsLower(board[_x, _y])))
+            {
+                moves.Add(new Cell { x = _x, y = _y });
+                if (Char.IsLower(board[_x, _y]))
+                    break;
+            }
+            else
+                break;
+        }
+        _x = figure.x;
+        _y = figure.y;
+        while (true)
+        {
+            _x--;
+            _y++;
+            if (_x >= 0 && _y < 4 && (board[_x, _y] == '.' || Char.IsLower(board[_x, _y])))
+            {
+                moves.Add(new Cell { x = _x, y = _y });
+                if (Char.IsLower(board[_x, _y]))
+                    break;
+            }
+            else
+                break;
+        }
+        _x = figure.x;
+        _y = figure.y;
+        while (true)
+        {
+            _x++;
+            _y--;
+            if (_x < 4 && _y >= 0 && (board[_x, _y] == '.' || Char.IsLower(board[_x, _y])))
+            {
+                moves.Add(new Cell { x = _x, y = _y });
+                if (Char.IsLower(board[_x, _y]))
+                    break;
+            }
+            else
+                break;
+        }
+//        foreach (var move in moves)
+//            board[move.x, move.y] = 'x';
+//        DrawBoard(board);
+        return moves;
+    }
+
+    static List<Cell> HorizontalMoves(List<Figure> myFigures, List<Figure> opponent, Figure figure)
+    {
+        var col = myFigures.ToList();
         var board = Board(col, opponent);
         var moves = new List<Cell>();
         int x, y;
+
         x = figure.x;
         y = figure.y;
         while (true)
         {
             x++;
-            y++;
-            if (x < 4 && y < 4 && (board[x, y] == '.' || Char.IsLower(board[x,y])))
-                moves.Add(new Cell {x = x, y = y});
+            if (x < 4 && (board[x, y] == '.' || Char.IsLower(board[x, y])))
+            {
+                moves.Add(new Cell { x = x, y = y });
+                if (Char.IsLower(board[x, y]))
+                    break;
+            }
             else
                 break;
         }
+
         x = figure.x;
         y = figure.y;
         while (true)
         {
             x--;
-            y--;
-            if (x >= 0 && y >= 0 && (board[x, y] == '.' || Char.IsLower(board[x, y])))
+            if (x >= 0 && (board[x, y] == '.' || Char.IsLower(board[x, y])))
+            {
                 moves.Add(new Cell { x = x, y = y });
+                if (Char.IsLower(board[x, y]))
+                    break;
+            }
             else
                 break;
         }
+
         x = figure.x;
         y = figure.y;
         while (true)
         {
-            x--;
             y++;
-            if (x >= 0 && y < 4 && (board[x, y] == '.' || Char.IsLower(board[x, y])))
+            if (y < 4 && (board[x, y] == '.' || Char.IsLower(board[x, y])))
+            {
                 moves.Add(new Cell { x = x, y = y });
+                if (Char.IsLower(board[x, y]))
+                    break;
+            }
             else
                 break;
         }
+
         x = figure.x;
         y = figure.y;
         while (true)
         {
-            x++;
             y--;
-            if (x < 4 && y >= 0 && (board[x, y] == '.' || Char.IsLower(board[x, y])))
+            if (y >= 0 && (board[x, y] == '.' || Char.IsLower(board[x, y])))
+            {
                 moves.Add(new Cell { x = x, y = y });
+                if (Char.IsLower(board[x, y]))
+                    break;
+            }
             else
                 break;
         }
-        foreach (var move in moves)
-            board[move.y, move.x] = 'x';
-        DrawBoard(board);
+//        foreach (var move in moves)
+//            board[move.x, move.y] = 'x';
+//        DrawBoard(board);
         return moves;
     }
 
@@ -178,6 +400,4 @@ class Solution
         figure.x = Convert.ToInt32(t[2]) - 1;
         return figure;
     }
-
-
 }
